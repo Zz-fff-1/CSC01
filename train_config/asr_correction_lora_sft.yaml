@@ -1,0 +1,47 @@
+### 模型
+model_name_or_path: models/Qwen2-Audio-7B-Instruct
+trust_remote_code: true
+
+### 方法
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
+
+### 数据集
+dataset: asr_correction_train
+template: qwen2_audio
+cutoff_len: 2048
+preprocessing_num_workers: 4
+dataloader_num_workers: 2
+
+### 输出
+output_dir: ../saves/qwen2-audio-7b/lora/asr_correction_rerun
+logging_steps: 10
+save_steps: 150
+save_total_limit: 3
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: tensorboard
+
+### 训练
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 5.0e-5
+num_train_epochs: 8.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
+resume_from_checkpoint: null
+
+### 验证
+eval_dataset: asr_correction_test
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 50
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false

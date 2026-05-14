@@ -1,0 +1,47 @@
+### 模型
+model_name_or_path: C:/Users/Zinfandel/Desktop/CSC/models/Qwen3.5-4B
+trust_remote_code: true
+
+### 方法
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
+
+### 数据集
+dataset: text_correction_train
+template: qwen
+cutoff_len: 1024
+preprocessing_num_workers: 8
+dataloader_num_workers: 4
+
+### 输出
+output_dir: saves/qwen3.5-4b/lora/text_correction
+logging_steps: 10
+save_steps: 150
+save_total_limit: 3
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: tensorboard
+
+### 训练
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+num_train_epochs: 8.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
+resume_from_checkpoint: null
+
+### 验证
+eval_dataset: text_correction_test
+per_device_eval_batch_size: 2
+eval_strategy: steps
+eval_steps: 50
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false

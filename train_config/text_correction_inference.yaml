@@ -1,0 +1,5 @@
+model_name_or_path: C:/Users/Zinfandel/Desktop/CSC/models/Qwen3.5-4B-Instruct
+adapter_name_or_path: saves/qwen3.5-4b/lora/text_correction
+template: qwen
+infer_backend: huggingface
+trust_remote_code: true

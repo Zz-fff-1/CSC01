@@ -1,0 +1,5 @@
+model_name_or_path: models/Qwen2-Audio-7B-Instruct
+adapter_name_or_path: saves/qwen2-audio-7b/lora/asr_correction
+template: qwen2_audio
+infer_backend: huggingface
+trust_remote_code: true
