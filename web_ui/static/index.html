@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>多模态中文纠错</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-app: #212121;
+      --bg-sidebar: #171717;
+      --bg-main: #212121;
+      --bg-input: #2f2f2f;
+      --bg-user: #2f2f2f;
+      --bg-assistant: #2f2f2f;
+      --border: #424242;
+      --text: #ececec;
+      --text-dim: #b4b4b4;
+      --accent: #10a37f;
+      --accent-hover: #1a7f64;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "DM Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-app);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px;
+      min-height: 0;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .brand-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #10a37f, #1e3a5f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .brand h1 { font-size: 15px; font-weight: 600; line-height: 1.3; }
+    .brand p { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .session-block {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .session-block-header {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0 10px 8px;
+    }
+    .btn-new-chat {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .btn-new-chat:hover { background: rgba(255,255,255,0.08); }
+    .session-list {
+      flex: 1;
+      min-height: 80px;
+      max-height: 38vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-dim);
+      transition: background 0.12s;
+    }
+    .session-item:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .session-item.active { background: rgba(16, 163, 127, 0.15); color: var(--text); }
+    .session-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .del-session {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0.65;
+    }
+    .del-session:hover { opacity: 1; background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .mode-section { flex-shrink: 0; }
+    .mode-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 10px 8px; }
+    .mode-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      border: none;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .mode-btn:hover { background: rgba(255,255,255,0.06); }
+    .mode-btn.active { background: rgba(255,255,255,0.1); }
+    .mode-btn small { display: block; font-size: 11px; color: var(--text-dim); margin-top: 4px; font-weight: 400; }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg-main);
+    }
+    .toolbar {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+    .toolbar h2 { font-size: 16px; font-weight: 600; }
+    .toolbar-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .ollama-base {
+      font-size: 11px;
+      color: var(--text-dim);
+      word-break: break-all;
+      text-align: right;
+      max-width: 55%;
+    }
+    .toolbar-models {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      width: 100%;
+      align-items: flex-end;
+    }
+    .model-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-dim);
+      flex: 1;
+      min-width: 160px;
+    }
+    .model-field.narrow { flex: 0 0 100px; min-width: 80px; }
+    .model-field input {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .model-field input:focus { outline: 1px solid var(--accent); }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .msg { max-width: 760px; width: 100%; margin: 0 auto; display: flex; gap: 14px; }
+    .msg.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .msg.user .avatar { background: #5436da; }
+    .msg.assistant .avatar { background: var(--accent); }
+    .bubble {
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user .bubble { background: var(--bg-user); border: 1px solid var(--border); }
+    .msg.assistant .bubble { background: var(--bg-assistant); border: 1px solid var(--border); }
+    .msg.system .bubble {
+      background: rgba(16, 163, 127, 0.12);
+      border: 1px solid rgba(16, 163, 127, 0.35);
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .composer-wrap {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-main);
+    }
+    .composer {
+      max-width: 760px;
+      margin: 0 auto;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 10px 14px 12px;
+    }
+    .composer-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; padding-left: 4px; }
+    textarea {
+      width: 100%;
+      min-height: 52px;
+      max-height: 200px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      padding: 4px;
+    }
+    .file-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .file-btn {
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .file-btn:hover { color: var(--text); border-color: #666; }
+    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .file-name { font-size: 12px; color: var(--accent); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .composer-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+    .send {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .send:hover:not(:disabled) { background: var(--accent-hover); }
+    .send:disabled { opacity: 0.45; cursor: not-allowed; }
+    .typing { color: var(--text-dim); font-style: italic; }
+    .lora-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 8px 0;
+    }
+    .lora-toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+    .config-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-top: 6px;
+      word-break: break-all;
+    }
+    @media (max-width: 720px) {
+      .sidebar { display: none; }
+      .toolbar { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">中</div>
+      <div>
+        <h1>Multi-model Chinese Spelling Correction</h1>
+        <p>TEXT · IMAGE OCR · AUDIO ASR</p>
+      </div>
+    </div>
+    <div class="session-block">
+      <div class="session-block-header">History</div>
+      <button type="button" class="btn-new-chat" id="btnNewChat">＋ New chat</button>
+      <div class="session-list" id="sessionList"></div>
+    </div>
+    <div class="mode-section">
+    <div class="mode-label">mode</div>
+    <button type="button" class="mode-btn active" data-mode="text">
+      Text Correction
+      <small>Pasting may contain errors in Chinese</small>
+    </button>
+    <button type="button" class="mode-btn" data-mode="ocr">
+      Image OCR
+      <small>Recognize the text in the image
+</small>
+    </button>
+    <button type="button" class="mode-btn" data-mode="asr">
+      Audio ASR Correction
+      <small>Audio + ASR Text</small>
+    </button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="toolbar">
+      <div class="toolbar-top">
+        <h2 id="modeTitle">Text Correction</h2>
+        <span class="ollama-base" id="backendLabel"></span>
+      </div>
+      <div class="toolbar-models" id="panelTransformers" style="display: none;">
+        <label class="lora-toggle">
+          <input type="checkbox" id="useLora" checked />
+          <span>Use LoRA</span>
+        </label>
+      </div>
+      <div class="toolbar-models" id="panelOllama" style="display: none;">
+        <label class="model-field">
+          <span>Ollama Mode Name</span>
+          <input type="text" id="modelName" name="model" autocomplete="off" />
+        </label>
+      </div>
+      <div class="toolbar-models">
+        <label class="model-field narrow">
+          <span>max tokens</span>
+          <input type="number" id="maxTokens" value="512" min="1" max="8192" />
+        </label>
+      </div>
+      <p class="config-hint" id="tfConfigHint" style="display: none;"></p>
+    </header>
+    <div class="messages" id="messages"></div>
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="composer-hint" id="composerHint">Enter the Chinese text to be corrected, press enter or click send.
+</div>
+        <textarea id="inputText" placeholder="Input..." rows="3"></textarea>
+        <div class="file-row" id="fileRow" style="display:none;">
+          <label class="file-btn">
+            <input type="file" id="fileImage" accept="image/*" />
+            Select Image
+          </label>
+          <span class="file-name" id="imageName"></span>
+        </div>
+        <div class="file-row" id="audioRow" style="display:none;">
+          <label class="file-btn">
+            <input type="file" id="fileAudio" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg" />
+            Select Audio
+          </label>
+          <span class="file-name" id="audioName"></span>
+        </div>
+        <div class="composer-actions">
+          <button type="button" class="send" id="sendBtn">send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script>
+    const modeTitles = {
+      text: "Text Correction",
+      ocr: "Image OCR",
+      asr: "Audio ASR Correction",
+    };
+    let currentMode = "text";
+    let backend = "transformers";
+    const messagesEl = document.getElementById("messages");
+    const modeTitle = document.getElementById("modeTitle");
+    const composerHint = document.getElementById("composerHint");
+    const inputText = document.getElementById("inputText");
+    const fileRow = document.getElementById("fileRow");
+    const audioRow = document.getElementById("audioRow");
+    const fileImage = document.getElementById("fileImage");
+    const fileAudio = document.getElementById("fileAudio");
+    const imageName = document.getElementById("imageName");
+    const audioName = document.getElementById("audioName");
+    const sendBtn = document.getElementById("sendBtn");
+    const modelName = document.getElementById("modelName");
+    const maxTokens = document.getElementById("maxTokens");
+    const backendLabel = document.getElementById("backendLabel");
+    const panelTransformers = document.getElementById("panelTransformers");
+    const panelOllama = document.getElementById("panelOllama");
+    const tfConfigHint = document.getElementById("tfConfigHint");
+    const useLora = document.getElementById("useLora");
+    let configDefaults = { text: "", ocr: "", asr: "" };
+    let inferenceConfigs = null;
+
+    const LS_SESSIONS = "correction_ui_sessions_v1";
+    const LS_CURRENT = "correction_ui_current_session";
+    let sessions = [];
+    let currentSessionId = "";
+
+    function getCurrentSession() {
+      return sessions.find((s) => s.id === currentSessionId) || null;
+    }
+
+    function persistSessions() {
+      try {
+        localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+        localStorage.setItem(LS_CURRENT, currentSessionId);
+      } catch (e) {
+        console.warn("localStorage 写入失败", e);
+      }
+    }
+
+    function loadSessionsFromStorage() {
+      try {
+        const raw = localStorage.getItem(LS_SESSIONS);
+        sessions = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(sessions)) sessions = [];
+        sessions.forEach((s) => {
+          if (!s.mode) s.mode = "text";
+          if (!Array.isArray(s.messages)) s.messages = [];
+          if (typeof s.updatedAt !== "number") s.updatedAt = Date.now();
+        });
+      } catch (e) {
+        sessions = [];
+      }
+      currentSessionId = localStorage.getItem(LS_CURRENT) || "";
+      if (!sessions.length) {
+        createNewSession(true);
+        return;
+      }
+      if (!sessions.some((s) => s.id === currentSessionId)) {
+        currentSessionId = sessions[0].id;
+      }
+      persistSessions();
+    }
+
+    function welcomeText() {
+      return backend === "ollama"
+        ? "Ollama"
+        : "Transformers";
+        // ? "当前为 Ollama 后端：填写模型名后发送。"
+        // : "当前为 Transformers 后端：模型与 LoRA 路径由 train_config 下各 inference yaml 决定，可勾选是否加载 LoRA。";
+    }
+
+    function createNewSession(withWelcome) {
+      const id = crypto.randomUUID();
+      sessions.unshift({
+        id,
+        title: "New chat",
+        updatedAt: Date.now(),
+        mode: currentMode,
+        messages: [],
+      });
+      currentSessionId = id;
+      persistSessions();
+      renderSessionList();
+      messagesEl.innerHTML = "";
+      if (withWelcome) {
+        const s = getCurrentSession();
+        const msg = welcomeText();
+        s.messages.push({ role: "system", content: msg });
+        s.updatedAt = Date.now();
+        persistSessions();
+        renderBubble("system", msg);
+      }
+      clearComposer();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function switchSession(id) {
+      if (id === currentSessionId) return;
+      currentSessionId = id;
+      const s = getCurrentSession();
+      if (!s) return;
+      currentMode = s.mode || "text";
+      setMode(currentMode, false);
+      persistSessions();
+      renderSessionList();
+      renderAllMessages();
+      clearComposer();
+    }
+
+    function deleteSession(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (!confirm("确定删除此会话？不可恢复。")) return;
+      const wasCurrent = id === currentSessionId;
+      sessions = sessions.filter((s) => s.id !== id);
+      if (!sessions.length) {
+        currentSessionId = "";
+        persistSessions();
+        createNewSession(true);
+        return;
+      }
+      if (wasCurrent) {
+        currentSessionId = sessions[0].id;
+      }
+      persistSessions();
+      renderSessionList();
+      if (wasCurrent) {
+        switchSession(currentSessionId);
+      }
+    }
+
+    function renderSessionList() {
+      const el = document.getElementById("sessionList");
+      if (!el) return;
+      el.innerHTML = "";
+      const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+      sorted.forEach((s) => {
+        const row = document.createElement("div");
+        row.className = "session-item" + (s.id === currentSessionId ? " active" : "");
+        row.addEventListener("click", () => switchSession(s.id));
+        const title = document.createElement("span");
+        title.className = "session-title";
+        title.textContent = s.title || "未命名";
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "del-session";
+        del.setAttribute("aria-label", "删除会话");
+        del.textContent = "×";
+        del.addEventListener("click", (e) => deleteSession(s.id, e));
+        row.appendChild(title);
+        row.appendChild(del);
+        el.appendChild(row);
+      });
+    }
+
+    function renderBubble(role, text) {
+      const wrap = document.createElement("div");
+      wrap.className = "msg " + role;
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = role === "user" ? "我" : role === "assistant" ? "AI" : "i";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      wrap.appendChild(av);
+      wrap.appendChild(bubble);
+      messagesEl.appendChild(wrap);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function renderAllMessages() {
+      messagesEl.innerHTML = "";
+      const s = getCurrentSession();
+      if (!s || !s.messages) return;
+      s.messages.forEach((m) => renderBubble(m.role, m.content));
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendToCurrentSession(role, text) {
+      const s = getCurrentSession();
+      if (!s) return;
+      s.messages.push({ role, content: text });
+      s.updatedAt = Date.now();
+      if (role === "user") {
+        const t = text.replace(/^\[图片\]|\[音频\]/g, "").trim() || text;
+        if (s.title === "新会话" || !s.title) {
+          s.title = (t.slice(0, 26) || "会话") + (t.length > 26 ? "…" : "");
+        }
+      }
+      persistSessions();
+      renderSessionList();
+      renderBubble(role, text);
+    }
+
+    function clearComposer() {
+      inputText.value = "";
+      if (fileImage) fileImage.value = "";
+      if (fileAudio) fileAudio.value = "";
+      if (imageName) imageName.textContent = "";
+      if (audioName) audioName.textContent = "";
+    }
+
+    function hintForMode(m) {
+      if (backend === "ollama") {
+        if (m === "text") return "输入待纠错中文；填写上方 Ollama 模型名。";
+        if (m === "ocr") return "上传图片；需本机 Ollama 已拉取视觉模型。";
+        return "填写 ASR 文稿（必填）。上传音频可选，请求不会把音频发给 Ollama。";
+      }
+      if (m === "text")
+        return "Use train_config/text_correction_inference.yaml + Transformers to infer.";
+      if (m === "ocr") return "Use ocr_vl_inference.yaml；upload image.";
+      return "Use asr_correction_inference.yaml；Upload audio and fill out ASR transcript。";
+    }
+
+    function setMode(m, savePrev) {
+      if (backend === "ollama" && savePrev !== false && modelName) {
+        const v = modelName.value.trim();
+        if (v) localStorage.setItem("ollama_model_" + currentMode, v);
+      }
+      currentMode = m;
+      const cur = getCurrentSession();
+      if (cur) {
+        cur.mode = m;
+        persistSessions();
+      }
+      document.querySelectorAll(".mode-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
+      modeTitle.textContent = modeTitles[m];
+      composerHint.textContent = hintForMode(m);
+      fileRow.style.display = m === "ocr" ? "flex" : "none";
+      audioRow.style.display = m === "asr" ? "flex" : "none";
+      inputText.placeholder = m === "asr" ? "Input the transcript with wrong word..." : "Input...";
+      if (backend === "ollama" && modelName) {
+        const saved = localStorage.getItem("ollama_model_" + m);
+        const def = (configDefaults && configDefaults[m]) || "";
+        modelName.value = saved || def;
+        modelName.placeholder = def ? `环境变量默认: ${def}` : "例如 qwen2.5:7b";
+      }
+    }
+
+    document.querySelectorAll(".mode-btn").forEach((b) => {
+      b.addEventListener("click", () => setMode(b.dataset.mode));
+    });
+
+    async function loadConfig() {
+      try {
+        const r = await fetch("/api/config");
+        const c = await r.json();
+        backend = (c.backend || "transformers").toLowerCase();
+        configDefaults = c.default_models || { text: "", ocr: "", asr: "" };
+        inferenceConfigs = c.inference_configs || null;
+        if (backend === "ollama") {
+          backendLabel.textContent = c.ollama_base ? `Ollama · ${c.ollama_base}` : "Ollama";
+          panelOllama.style.display = "flex";
+          panelTransformers.style.display = "none";
+          tfConfigHint.style.display = "none";
+        } else {
+          backendLabel.textContent = "Transformers（HuggingFace）";
+          panelOllama.style.display = "none";
+          panelTransformers.style.display = "flex";
+          tfConfigHint.style.display = "block";
+          if (inferenceConfigs) {
+            tfConfigHint.textContent = `Inference config：${inferenceConfigs.text} · ${inferenceConfigs.ocr} · ${inferenceConfigs.asr}`;
+          }
+        }
+      } catch (e) {
+        backendLabel.textContent = "";
+      }
+    }
+
+    fileImage.addEventListener("change", () => {
+      imageName.textContent = fileImage.files[0] ? fileImage.files[0].name : "";
+    });
+    fileAudio.addEventListener("change", () => {
+      audioName.textContent = fileAudio.files[0] ? fileAudio.files[0].name : "";
+    });
+
+    async function send() {
+      const text = inputText.value.trim();
+      if (currentMode === "text" && !text) return;
+      if (currentMode === "asr" && !text) {
+        alert("请填写 ASR 识别文本");
+        return;
+      }
+      if (currentMode === "ocr" && (!fileImage.files || !fileImage.files[0])) {
+        alert("请上传图片");
+        return;
+      }
+      if (backend === "transformers" && currentMode === "asr" && (!fileAudio.files || !fileAudio.files[0])) {
+        alert("Transformers ASR 模式请上传音频");
+        return;
+      }
+      let mdl = "";
+      if (backend === "ollama") {
+        mdl = modelName.value.trim();
+        if (!mdl) {
+          alert("请填写 Ollama 模型名");
+          return;
+        }
+      }
+
+      let userDisplay = text;
+      if (currentMode === "ocr") userDisplay = "[图片] " + (fileImage.files[0]?.name || "");
+      if (currentMode === "asr") userDisplay = "[音频] " + (fileAudio.files[0]?.name || "") + "\n" + text;
+      appendToCurrentSession("user", userDisplay || "(空)");
+
+      sendBtn.disabled = true;
+      const pending = document.createElement("div");
+      pending.className = "msg assistant";
+      pending.innerHTML = '<div class="avatar">AI</div><div class="bubble typing">正在生成...</div>';
+      messagesEl.appendChild(pending);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      const fd = new FormData();
+      fd.append("mode", currentMode);
+      fd.append("model", mdl);
+      fd.append("text", text);
+      fd.append("max_tokens", maxTokens.value || "512");
+      fd.append("use_lora", useLora && useLora.checked ? "true" : "false");
+      if (currentMode === "ocr" && fileImage.files[0]) fd.append("image", fileImage.files[0]);
+      if (currentMode === "asr" && fileAudio.files[0]) fd.append("audio", fileAudio.files[0]);
+
+      try {
+        const res = await fetch("/api/correct", { method: "POST", body: fd });
+        const data = await res.json();
+        pending.remove();
+        if (!res.ok) {
+          let msg = data.error;
+          if (data.detail) {
+            msg = Array.isArray(data.detail)
+              ? data.detail.map((x) => x.msg || JSON.stringify(x)).join("; ")
+              : data.detail;
+          }
+          appendToCurrentSession("assistant", "错误: " + (msg || res.statusText));
+          return;
+        }
+        if (!data.ok) {
+          appendToCurrentSession("assistant", "错误: " + (data.error || "未知错误"));
+          return;
+        }
+        appendToCurrentSession("assistant", data.result);
+      } catch (e) {
+        pending.remove();
+        appendToCurrentSession("assistant", "请求失败: " + e.message);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", send);
+    inputText.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey && currentMode === "text") {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    document.getElementById("btnNewChat").addEventListener("click", () => createNewSession(true));
+
+    (async function init() {
+      await loadConfig();
+      loadSessionsFromStorage();
+      const s = getCurrentSession();
+      if (s) {
+        currentMode = s.mode || "text";
+        setMode(currentMode, false);
+        renderSessionList();
+        renderAllMessages();
+      } else {
+        setMode("text", false);
+      }
+    })();
+  </script>
+</body>
+</html>
